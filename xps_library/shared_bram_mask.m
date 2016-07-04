@@ -45,7 +45,7 @@ end
 
 try
   set_param([c_sys, '/calc_add'], 'data_width', num2str(data_width), 'addr_width', num2str(addr_width));
-  %set_param([c_sys, '/mem/calc_add'], 'data_width', num2str(data_width), 'addr_width', num2str(addr_width));
+  set_param([c_sys, '/mem/calc_add'], 'data_width', num2str(data_width), 'addr_width', num2str(addr_width));
 catch
   warning('Shared BRAM block "%s" is out of date (needs its link restored)', c_sys);
 end
