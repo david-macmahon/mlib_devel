@@ -1,0 +1,78 @@
+#!/bin/false
+
+###########################################################################
+#                                                                         #
+# DO NOT PUT LOCAL CONFIGURATION INFORMATION IN THIS FILE!                #
+#                                                                         #
+###########################################################################
+#                                                                         #
+# This "vivadorc" script is used to setup the environment for Vivado.     #
+#                                                                         #
+# Put local definitions in "vivadorc.local" in the same directory as this #
+# file.  At a minimum, the "vivadorc.local" file should define the        #
+# and XILINX_PATH environment variable that points to the base directory  #
+# of the respective installation directories.  You should define the      #
+# PLATFORM variable (probably as lin64) in that file as well.             #
+#                                                                         #
+# This file should be sourced using the "source" command:                 #
+#                                                                         #
+# $ source vivadorc                                                       #
+#                                                                         #
+###########################################################################
+
+# Find canonical ("real") directory of this script
+SCRIPT_DIR=$(dirname `readlink -e "${BASH_SOURCE[0]}"`)
+
+# Find basename of this script
+SCRIPT_BASE=$(basename "${BASH_SOURCE[0]}")
+
+# First look for local defs in current directory
+if [ -f "./${SCRIPT_BASE}.local" ]
+then
+  LOCALDEFS="./${SCRIPT_BASE}.local"
+
+# Next, look in directory where symlink points
+elif [ -f "${SCRIPT_DIR}/${SCRIPT_BASE}.local" ]
+then
+  LOCALDEFS="${SCRIPT_DIR}/${SCRIPT_BASE}.local"
+fi
+
+if [ -n "${LOCALDEFS}" ]
+then
+  echo "Reading local definitions from '${LOCALDEFS}'"
+  source "${LOCALDEFS}"
+else
+  echo "WARNING: Local environment file not found"
+fi
+
+# Verify that XILINX_PATH is reasonable
+if ! [ -n "${XILINX_PATH}" ]
+then
+  echo "ERROR: XILINX_PATH is not defined in the current environment."
+  return 1
+elif ! [ -d "${XILINX_PATH}" -a -r "${XILINX_PATH}" ]
+then
+  echo "ERROR: XILINX_PATH '${XILINX_PATH}' is not a readable directory."
+  return 1
+fi
+
+if ! [ -n "${PLATFORM}" ]
+then
+  echo "WARNING: PLATFORM is not defined in the current environment, assuming 'lin64'."
+  export PLATFORM="lin64"
+fi
+
+# If not yet defined, set MLIB_DEVEL_PATH based on canonicalized directory of
+# this script.  This is probably what you want, so just don't define it
+# elsewhere.
+if ! [ -n "${MLIB_DEVEL_PATH}" ]
+then
+  export MLIB_DEVEL_PATH="${SCRIPT_DIR}"
+fi
+
+# Show environment essentials
+echo "Using XILINX_PATH=${XILINX_PATH}"
+echo "Using PLATFORM=${PLATFORM}"
+echo "Using MLIB_DEVEL_PATH=${MLIB_DEVEL_PATH}"
+
+source "${XILINX_PATH}/settings64.sh" > /dev/null
