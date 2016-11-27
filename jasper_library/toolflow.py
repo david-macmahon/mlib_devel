@@ -761,6 +761,7 @@ class VivadoBackend(ToolflowBackend):
         self.src_file_block_diagram_ext = 'bd'
         self.src_file_elf_ext = 'elf'
         self.src_file_coe_ext = 'coe'
+        self.src_file_design_checkpoint_ext = 'dcp'
         self.manufacturer = 'xilinx'
         self.project_name = 'myproj'
         self.periph_objs = periph_objs
@@ -842,27 +843,32 @@ class VivadoBackend(ToolflowBackend):
                 if ext == self.src_file_vhdl_ext:
                     self.add_tcl_cmd('read_vhdl %s/%s' % (source,current_source))
                 # Verilog File
-                if ext == self.src_file_verilog_ext:
+                elif ext == self.src_file_verilog_ext:
                     # Only read from source when reading the top.v file
                     if os.path.basename(source) == 'top.v':
                       self.add_tcl_cmd('read_verilog %s' % source)
                     else:
                       self.add_tcl_cmd('read_verilog %s/%s' % (source,current_source))
                 # System Verilog File
-                if ext == self.src_file_sys_verilog_ext:
+                elif ext == self.src_file_sys_verilog_ext:
                     self.add_tcl_cmd('read_verilog -sv %s/%s' % (source,current_source))
                 # IP File
-                if ext == self.src_file_ip_ext:
+                elif ext == self.src_file_ip_ext:
                     self.add_tcl_cmd('read_ip %s/%s' % (source,current_source))
                 # Block Diagram File
-                if ext == self.src_file_block_diagram_ext:
+                elif ext == self.src_file_block_diagram_ext:
                     self.add_tcl_cmd('read_bd %s/%s' % (source,current_source))
                 # ELF Microblaze File
-                if ext == self.src_file_elf_ext:
+                elif ext == self.src_file_elf_ext:
                     self.add_tcl_cmd('add_files %s/%s' % (source,current_source))
                 # Coefficient BRAM File
-                if ext == self.src_file_coe_ext:
+                elif ext == self.src_file_coe_ext:
                     self.add_tcl_cmd('add_files %s/%s' % (source,current_source))
+                # Design checkpoint files
+                elif ext == self.src_file_design_checkpoint_ext:
+                    self.add_tcl_cmd('add_files %s' % current_source)
+                else:
+                    self.logger.warning('unknown extension, ignoring source file %s' % current_source)
 
     def add_const_file(self, constfile, plat):
         """
@@ -916,7 +922,18 @@ class VivadoBackend(ToolflowBackend):
             self.add_tcl_cmd('reset_run synth_1')
             self.add_tcl_cmd('launch_runs synth_1 -jobs %d' % cores)
             self.add_tcl_cmd('wait_on_run synth_1')
-            # self.add_tcl_cmd('open_run synth_1')
+
+            # Add asynchronous clock info to synthesized design to prevent
+            # unwanted timing constraints
+            self.add_tcl_cmd('open_run synth_1')
+            self.add_tcl_cmd('set_clock_groups \\')
+            self.add_tcl_cmd('  -group [get_clocks -include_generated_clocks -regexp {adc16_clk_line.*}] \\')
+            self.add_tcl_cmd('  -group [get_clocks -include_generated_clocks -regexp {ref_clk_.*}] \\')
+            self.add_tcl_cmd('  -group [get_clocks -include_generated_clocks -regexp {sys_clk_.*}] \\')
+            self.add_tcl_cmd('  -group [get_clocks -include_generated_clocks -regexp {.*/ten_gig_eth_pcs_pma_.*}] \\')
+            self.add_tcl_cmd('  -asynchronous')
+
+            # Run implementation
             self.add_tcl_cmd('launch_runs impl_1 -jobs %d' % cores)
             self.add_tcl_cmd('wait_on_run impl_1')
             self.add_tcl_cmd('open_run impl_1')
@@ -976,6 +993,12 @@ class VivadoBackend(ToolflowBackend):
                              % (self.compile_dir,self.project_name))
             self.add_tcl_cmd('report_utilization -file %s/%s/post_synth_timing_summary.rpt'
                              % (self.compile_dir, self.project_name))
+            self.add_tcl_cmd('set_clock_groups \\')
+            self.add_tcl_cmd('  -group [get_clocks -include_generated_clocks -regexp {adc16_clk_line.*}] \\')
+            self.add_tcl_cmd('  -group [get_clocks -include_generated_clocks -regexp {ref_clk_.*}] \\')
+            self.add_tcl_cmd('  -group [get_clocks -include_generated_clocks -regexp {sys_clk_.*}] \\')
+            self.add_tcl_cmd('  -group [get_clocks -include_generated_clocks -regexp {.*/ten_gig_eth_pcs_pma_.*}] \\')
+            self.add_tcl_cmd('  -asynchronous')
             self.add_tcl_cmd('opt_design')
             self.add_tcl_cmd('place_design')
             self.add_tcl_cmd('report_clock_utilization -file %s/%s/clock_util.rpt'
